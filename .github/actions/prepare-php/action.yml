@@ -7,13 +7,28 @@ inputs:
     required: false
     default: "7.4"
 
-  tools:
-    description: 'Specify the tools parameter of shivammathur/setup-php@v2. "" by default. Example: composer:v1, cs2pr, wp-cli'
+  coverage:
+    description: >
+      Specify the coverage parameter of shivammathur/setup-php@v2.
+      "none" by default to disable both Xdebug and PCOV.
     required: false
-    default: ""
+    default: "none"
+
+  tools:
+    description: >
+      Specify the tools parameter of shivammathur/setup-php@v2.
+      It accepts multiple tools separated by commas. For example: cs2pr, php-cs-fixer, wp-cli
+      Composer v2 is a built-in tool by default, so it's no need to specify additional.
+      To use Composer v1, set this parameter with composer:v1
+      Full list of support tools: https://github.com/shivammathur/setup-php#wrench-tools-support
+    required: false
 
   install-deps:
-    description: Whether to run `composer install`. Set "maybe" to install deps if cache is missing. "yes" by default.
+    description: >
+      Whether to run `composer install`.
+      "yes" by default.
+      Set "no" to skip.
+      Set "maybe" to install deps to update Composer cache if it is not hit.
     required: false
     default: "yes"
 
@@ -24,17 +39,17 @@ runs:
     - uses: shivammathur/setup-php@v2
       with:
         php-version: ${{ inputs.php-version }}
-        coverage: none
+        coverage: ${{ inputs.coverage }}
         tools: ${{ inputs.tools }}
 
-    # Log debug information.
-    - shell: sh -e {0}
+    # Log information.
+    - shell: bash
       run: |
         php --version
         composer --version
 
     # Get Composer cache directory.
-    - shell: sh -e {0}
+    - shell: bash
       id: composer-cache-config
       run: echo "::set-output name=dir::$(composer config cache-files-dir)"
 
@@ -47,12 +62,20 @@ runs:
         restore-keys: ${{ runner.os }}-composer-
 
     # Install Composer dependencies.
-    - shell: sh -e {0}
-      # Update Composer cache directory if composer.lock has changed.
+    - shell: bash
       run: |
-        if [ "${{ inputs.install-deps }}" = "yes" ] || [ "${{ steps.composer-cache.outputs.cache-hit }}" != "true" ]; then
-          composer install --prefer-dist --no-suggest --no-progress --no-ansi --no-interaction
-          echo "${PWD}/vendor/bin" >> $GITHUB_PATH
+        INSTALL_DEPS="${{ inputs.install-deps }}"
+        CACHE_HIT="${{ steps.composer-cache.outputs.cache-hit }}"
+        COMPOSER_VER=$(composer --version | awk '{ print $3 }')
+
+        COLOR_INFO="\033[38;5;39m"
+        COLOR_END="\033[0m"
+
+        if [ $INSTALL_DEPS != "no" ]; then
+          if [ $INSTALL_DEPS = "yes" ] || [[ $INSTALL_DEPS = "maybe" && $CACHE_HIT != "true" ]]; then
+            composer install --prefer-dist --no-interaction `if [[ $COMPOSER_VER == 1.* ]]; then printf %s "--no-suggest"; fi`
+            echo "${PWD}/vendor/bin" >> $GITHUB_PATH
+          fi
         else
-          echo "Skip composer install"
+          echo -e "${COLOR_INFO}Skip composer install${COLOR_END}"
         fi
