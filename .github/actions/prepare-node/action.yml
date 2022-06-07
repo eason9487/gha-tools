@@ -1,5 +1,5 @@
 name: Prepare Node.js
-description: Set up Node.js, load npm cache, install Node dependencies.
+description: Set up Node.js with a specific version, load npm cache, install Node dependencies.
 
 inputs:
   node-version:
@@ -11,11 +11,7 @@ inputs:
     default: ""
 
   install-deps:
-    description: >
-      Whether to run `npm ci`.
-      "yes" by default.
-      Set "no" to skip.
-      Set "maybe" to install deps to update npm cache if it is not hit.
+    description: Whether to run `npm ci`. "yes" by default. Set "no" to skip.
     required: false
     default: "yes"
 
@@ -29,7 +25,6 @@ runs:
   steps:
     # Setup node version and caching.
     - uses: actions/setup-node@v3
-      id: setup-node
       with:
         node-version: ${{ inputs.node-version }}
         node-version-file: ${{ inputs.node-version-file }}
@@ -47,16 +42,12 @@ runs:
       run: |
         INSTALL_DEPS="${{ inputs.install-deps }}"
         IGNORE_SCRIPTS="${{ inputs.ignore-scripts }}"
-        CACHE_HIT="${{ steps.setup-node.outputs.cache-hit }}"
 
         COLOR_INFO="\033[38;5;39m"
         COLOR_END="\033[0m"
 
-        if [ $INSTALL_DEPS != "no" ]; then
-          if [ $INSTALL_DEPS = "yes" ] || [[ $INSTALL_DEPS = "maybe" && $CACHE_HIT != "true" ]]; then
-            npm ci `if [ $IGNORE_SCRIPTS = "yes" ]; then printf %s "--ignore-scripts"; fi`
-          fi
+        if [ $INSTALL_DEPS = "yes" ]; then
+          npm ci `if [ $IGNORE_SCRIPTS = "yes" ]; then printf %s "--ignore-scripts"; fi`
         else
           echo -e "${COLOR_INFO}Skip npm ci${COLOR_END}"
         fi
-
